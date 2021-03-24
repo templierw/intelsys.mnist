@@ -16,7 +16,7 @@ def loss_batch(model, loss_func, xb, yb, opt=None):
     return output, loss.item()
 
 
-def fit(epochs, model, loss_func, opt, train_dl, valid_dl):
+def fit(epochs, model, loss_func, opt, train_dl):
 
     train_losses = []
     train_counter = []
@@ -26,9 +26,9 @@ def fit(epochs, model, loss_func, opt, train_dl, valid_dl):
         for b_idx, (xb, yb) in enumerate(train_dl):
             _, loss = loss_batch(model, loss_func, xb, yb, opt)
 
-            if b_idx%60 == 0:
+            if b_idx%1000 == 0:
                 print(
-                    f'Train Epoch: {epoch} [{b_idx*len(xb)}/{len(train_dl.dataset)} ({100. * b_idx / len(train_dl):.0f}%)]\tLoss: {loss:.6f}'
+                    f'Train Epoch: {epoch} [{100. * b_idx / len(train_dl):.0f}%] \tLoss: {loss:.6f}'
                 )
 
             train_losses.append(loss)
