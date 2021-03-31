@@ -3,25 +3,34 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
 from torchvision import datasets as dt, transforms
 
+from helpers.analysis.AnalysisUtils import getNumCorrect
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 torch.manual_seed(1976)
 
-def loadMNIST(batch_size=4, num_workers=2, path="./dataset/"):
+def loadMNISTDatasets(path='./dataset'):
     transform = transforms.Compose(
         [transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))] # value needs to be recomputed, taken from internet
     )
-
     dataset = dt.MNIST(root=path, train=True, download=True, transform=transform)
-
+    
     test_split = int(len(dataset) * 0.2)
     train_split = len(dataset) - test_split
     train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
 
+    val_dataset = dt.MNIST(root=path, train=False, download=True, transform=transform)
+
+    return train_dataset, test_dataset, val_dataset
+
+
+def getMNISTLoaders(datasets,batch_size=4, num_workers=2):
+
+    train_dataset, test_dataset, val_dataset = datasets
+
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
-    val_dataset = dt.MNIST(root=path, train=False, download=True, transform=transform)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     return train_loader, test_loader, val_loader
@@ -94,11 +103,21 @@ def test(model, loss_fn, val_loader):
             yhat = model(x_test)
             sum_loss += loss_fn(yhat, y_test).item()
 
-            predicted = yhat.data.max(1, keepdim=True)[1]
-            correct += predicted.eq(y_test.data.view_as(predicted)).sum()
+            correct += getNumCorrect(yhat, y_test)
 
     avg_loss = sum_loss / len(val_loader.dataset)
     accuracy = correct / len(val_loader.dataset)
     accuracy_percent = accuracy * 100
 
     print(f'\nTest set: Avg. loss: {avg_loss:.4f}, Accuracy: {accuracy} ({accuracy_percent:.1f}%)\n')
+
+
+def saveModel(model, name ,path='./models'):
+    torch.save(model.state_dict(), f'{path}/{name}')
+
+def loadModel(modelClass, name, path='./models'):
+    model = modelClass
+    model.load_state_dict(torch.load(f'{path}/{name}'))
+    model.eval()
+
+    return model
