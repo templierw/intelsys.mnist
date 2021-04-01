@@ -1,21 +1,17 @@
 # adapted from https://deeplizard.com/learn/video/NSKghk0pcco
 
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-import torchvision
-import torchvision.transforms as transforms
 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from IPython.display import display, clear_output
 import pandas as pd
-import json
 
 from collections import OrderedDict
 from collections import namedtuple
 from itertools import product
+
+from Models import MLPOne, MLPTwo, MLPZero
 
 class RunBuilder():
     @staticmethod
@@ -50,6 +46,26 @@ class RunManager():
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+    def setModel(self, run):
+        try:
+            modelName = run.model
+
+            if modelName == "MLPZero":
+                self.model = MLPZero()
+
+            if modelName == "MLPOne":
+                self.model = MLPOne()
+
+            if modelName == "MLPTwo":
+                self.model = MLPTwo()
+
+
+        except AttributeError:
+            self.model = MLPOne()
+
+        self.model.to(self.device)
+        
+
     def getOptimizer(self, name, modelParams, lr):
 
         if name == 'sgd' or None:
@@ -58,25 +74,23 @@ class RunManager():
         if name == 'adam':
             return torch.optim.Adam(modelParams, lr=lr)
 
-    def begin_run(self, run, model, train_loader, val_loader):
+    def begin_run(self, run, train_loader, val_loader):
 
         self.run_params = run
         self.run_count += 1
 
-        self.model = model.to(self.device)
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.tb = SummaryWriter(log_dir=f'runs/xp/{self.name}',comment=f'-{run}')
+        self.tb = SummaryWriter(log_dir=f'runs/xp/{self.name}/{run}')
 
         images, _ = next(iter(self.train_loader))
-        grid = torchvision.utils.make_grid(images)
-
-        self.tb.add_image('images', grid)
+        
         self.tb.add_graph(self.model, images)
 
     def end_run(self):
         self.tb.close()
         self.epoch_count = 0
+        self.model = None
 
     def begin_epoch(self):
         self.epoch_count += 1
@@ -139,19 +153,16 @@ class RunManager():
             self.run_data, orient='columns'
         ).to_csv(f'results/{self.name}.csv')
 
-        with open(f'results/{self.name}.json', 'w', encoding='utf-8') as f:
-            json.dump(self.run_data, f, ensure_ascii=False, indent=4)
-
     def create_train_step_function(self, loss_fn, optimizer):
         def train_step(x, y):
             self.model.train()
             yhat = self.model(x)
 
             loss = loss_fn(yhat, y)
-            optimizer.zero_grad()
             loss.backward()
 
             optimizer.step()
+            optimizer.zero_grad()
             return yhat, loss
 
         return train_step
@@ -165,17 +176,20 @@ class RunManager():
 
         return validation_step
 
-    def fit(self, model, epochs, params, loss_fn, train_set, test_set):
+    def fit(self, epochs, params, loss_fn, train_set, test_set):
         
         for run in RunBuilder.get_runs(params):
+
+            self.setModel(run)
+
             train_loader = DataLoader(train_set, batch_size=run.batch_size)
             val_loader = DataLoader(test_set, batch_size=run.batch_size)
-            optimizer = self.getOptimizer(run.optim, model.parameters(), run.lr)
+            optimizer = self.getOptimizer(run.optim, self.model.parameters(), run.lr)
 
             train_step = self.create_train_step_function(loss_fn, optimizer)
             validation_step = self.create_validation_step_function(loss_fn)
 
-            self.begin_run(run, model, train_loader, val_loader)
+            self.begin_run(run, train_loader, val_loader)
             for epoch in range(epochs):
                 self.begin_epoch()
                 for batch in train_loader:

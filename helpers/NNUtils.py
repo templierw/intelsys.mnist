@@ -6,7 +6,6 @@ from torchvision import datasets as dt, transforms
 from helpers.analysis.AnalysisUtils import getNumCorrect
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-torch.manual_seed(1976)
 
 def loadMNISTDatasets(path='./dataset'):
     transform = transforms.Compose(
