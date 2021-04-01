@@ -8,10 +8,10 @@ from helpers.analysis.AnalysisUtils import getNumCorrect
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def loadMNISTDatasets(path='./dataset'):
-    transform = transforms.Compose(
-        [transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))] # value needs to be recomputed, taken from internet
-    )
+    transform = transforms.Compose([
+        transforms.ToTensor(), 
+        transforms.Normalize((0.1307,), (0.3081,))
+        ]) # value needs to be recomputed, taken from internet
     dataset = dt.MNIST(root=path, train=True, download=True, transform=transform)
     
     test_split = int(len(dataset) * 0.2)
@@ -20,7 +20,7 @@ def loadMNISTDatasets(path='./dataset'):
 
     val_dataset = dt.MNIST(root=path, train=False, download=True, transform=transform)
 
-    return train_dataset, test_dataset, val_dataset
+    return dataset, test_dataset, val_dataset
 
 
 def getMNISTLoaders(datasets,batch_size=4, num_workers=2):

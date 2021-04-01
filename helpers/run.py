@@ -1,5 +1,6 @@
 # adapted from https://deeplizard.com/learn/video/NSKghk0pcco
 
+from os import name
 import torch
 
 from torch.utils.data import DataLoader
@@ -59,7 +60,6 @@ class RunManager():
             if modelName == "MLPTwo":
                 self.model = MLPTwo()
 
-
         except AttributeError:
             self.model = MLPOne()
 
@@ -90,6 +90,7 @@ class RunManager():
     def end_run(self):
         self.tb.close()
         self.epoch_count = 0
+        self.saveModel(name=f'{self.name}_{self.run_params}')
         self.model = None
 
     def begin_epoch(self):
@@ -106,14 +107,14 @@ class RunManager():
         accuracy = self.epoch_num_correct / len(self.train_loader.dataset)
         accuracy_val = self.epoch_num_val_correct / len(self.val_loader.dataset)
 
-        self.tb.add_scalar('Loss', loss, self.epoch_count)
-        self.tb.add_scalar('ValLoss', val_loss, self.epoch_count)
-        self.tb.add_scalar('Accuracy', accuracy, self.epoch_count)
-        self.tb.add_scalar('AccuracyVal', accuracy_val, self.epoch_count)
-
-        #for name, param in self.model.named_parameters():
-        #    self.tb.add_histogram(name, param, self.epoch_count)
-        #    self.tb.add_histogram(f'{name}.grad', param.grad, self.epoch_count)
+        self.tb.add_scalars('Loss', {
+            "train_loss": loss,
+            "val_loss": val_loss
+        }, self.epoch_count)
+        self.tb.add_scalars('Accuracy', {
+            "train_accuracy": accuracy,
+            "val_accuracy": accuracy_val
+        }, self.epoch_count)
 
         results = OrderedDict()
         results["run"] = self.run_count
@@ -159,9 +160,10 @@ class RunManager():
             yhat = self.model(x)
 
             loss = loss_fn(yhat, y)
-            loss.backward()
 
+            loss.backward()
             optimizer.step()
+
             optimizer.zero_grad()
             return yhat, loss
 
@@ -182,8 +184,8 @@ class RunManager():
 
             self.setModel(run)
 
-            train_loader = DataLoader(train_set, batch_size=run.batch_size)
-            val_loader = DataLoader(test_set, batch_size=run.batch_size)
+            train_loader = DataLoader(train_set, batch_size=run.batch_size, shuffle=True, num_workers=2)
+            val_loader = DataLoader(test_set, batch_size=run.batch_size, num_workers=2)
             optimizer = self.getOptimizer(run.optim, self.model.parameters(), run.lr)
 
             train_step = self.create_train_step_function(loss_fn, optimizer)
@@ -202,15 +204,25 @@ class RunManager():
                     self.track_num_correct(preds, y_batch, test=True)
 
                 with torch.no_grad():
-                    for x_val, y_val in val_loader:
-                        x_val = x_val.to(self.device)
-                        y_val = y_val.to(self.device)
+                    for val_batch in val_loader:
+                        x_val = val_batch[0].to(self.device)
+                        y_val = val_batch[1].to(self.device)
 
                         preds, val_loss = validation_step(x_val, y_val)
 
-                        self.track_loss(val_loss, batch, test=False)
+                        self.track_loss(val_loss, val_batch, test=False)
                         self.track_num_correct(preds, y_val, test=False)
 
                 self.end_epoch()
             self.end_run()
         self.save()
+
+    def saveModel(self, name ,path='./models'):
+        torch.save(self.model.state_dict(), f'{path}/{name}')
+
+    def loadModel(modelClass, name, path='./models'):
+        model = modelClass
+        model.load_state_dict(torch.load(f'{path}/{name}'))
+        model.eval()
+
+        return model

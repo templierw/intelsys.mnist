@@ -1,5 +1,7 @@
 # intelsys.mnist
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/templierw/intelsys.mnist/master)
+
 ## readings/ tutorials
 
 - [CNN mnist](https://nextjournal.com/gkoehler/pytorch-mnist)
