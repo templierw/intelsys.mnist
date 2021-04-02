@@ -8,6 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 from IPython.display import display, clear_output
 import pandas as pd
 
+from helpers import VizUtils as vu
+
 from collections import OrderedDict
 from collections import namedtuple
 from itertools import product
@@ -87,7 +89,11 @@ class RunManager():
         
         self.tb.add_graph(self.model, images)
 
-    def end_run(self):
+    def end_run(self, val_batch):
+        inputs, labels = val_batch
+        self.tb.add_figure('predictions vs. actuals',
+                            vu.plot_classes_preds(self.model, inputs, labels),
+                            global_step=self.epoch_count)
         self.tb.close()
         self.epoch_count = 0
         self.saveModel(name=f'{self.name}_{self.run_params}')
@@ -214,7 +220,7 @@ class RunManager():
                         self.track_num_correct(preds, y_val, test=False)
 
                 self.end_epoch()
-            self.end_run()
+            self.end_run(val_batch)
         self.save()
 
     def saveModel(self, name ,path='./models'):
