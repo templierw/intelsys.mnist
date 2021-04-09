@@ -44,7 +44,7 @@ def getSGDOptim(model, lr, momentum=0):
 def create_train_step_function(model, loss_fn, optimizer):
     def train_step(x, y):
         model.train()
-        yhat = model(x)
+        yhat, _ = model(x)
 
         loss = loss_fn(yhat, y)
         loss.backward()
@@ -58,7 +58,7 @@ def create_train_step_function(model, loss_fn, optimizer):
 def create_validation_step_function(model, loss_fn):
     def validation_step(x, y):
         model.eval()
-        yhat = model(x)
+        yhat, _ = model(x)
         val_loss = loss_fn(yhat, y)
         return val_loss.item()
     return validation_step
@@ -101,7 +101,7 @@ def validate(model, loss_fn, val_loader):
             x_test = x_test.to(device)
             y_test = y_test.to(device)
 
-            yhat = model(x_test)
+            yhat, _ = model(x_test)
             sum_loss += loss_fn(yhat, y_test).item()
 
             correct += getNumCorrect(yhat, y_test)
