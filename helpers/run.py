@@ -1,6 +1,6 @@
 # adapted from https://deeplizard.com/learn/video/NSKghk0pcco
 
-from os import name
+import os
 import torch
 
 from torch.utils.data import DataLoader
@@ -64,7 +64,10 @@ class RunManager():
                 self.model = MLPTwo()
 
         except AttributeError:
-            self.model = MLPOne().to(self.device)
+            self.model = MLPOne()
+
+        finally:
+            self.model.to(self.device)
 
 
     def getOptimizer(self, name, modelParams, lr):
@@ -116,6 +119,7 @@ class RunManager():
             "train_loss": loss,
             "val_loss": val_loss
         }, self.epoch_count)
+
         self.tb.add_scalars('Accuracy', {
             "train_accuracy": accuracy,
             "val_accuracy": accuracy_val
@@ -145,17 +149,16 @@ class RunManager():
             self.epoch_val_loss += inc_loss
 
 
-    def _get_num_correct(self, preds, labels):
+    def get_num_correct(self, preds, labels):
         return preds.argmax(dim=1).eq(labels).sum().item()
 
 
     def track_num_correct(self, preds, labels, test=True):
-        num_correct = self._get_num_correct(preds, labels)
+        num_correct = self.get_num_correct(preds, labels)
         if test:
             self.epoch_num_correct += num_correct
         else:
             self.epoch_num_val_correct += num_correct
-
 
     def save(self):
         pd.DataFrame.from_dict(
@@ -188,7 +191,7 @@ class RunManager():
         return validation_step
 
 
-    def fit(self, epochs, params, loss_fn, train_set, val_set):
+    def run(self, epochs, params, loss_fn, train_set, val_set):
 
         for run in RunBuilder.get_runs(params):
 
@@ -204,9 +207,9 @@ class RunManager():
             self.begin_run(run, train_loader, val_loader)
             for epoch in range(epochs):
                 self.begin_epoch()
-                for x_batch, y_batch in train_loader:
-                    x_batch = x_batch.to(self.device)
-                    y_batch = y_batch.to(self.device)
+                for batch in train_loader:
+                    x_batch = batch[0].to(self.device)
+                    y_batch = batch[1].to(self.device)
 
                     preds, loss = train_step(x_batch, y_batch)
 
@@ -214,9 +217,9 @@ class RunManager():
                     self.track_num_correct(preds, y_batch, test=True)
 
                 with torch.no_grad():
-                    for x_val, y_val in test_loader:
-                        x_val = x_val.to(self.device)
-                        y_val = y_val.to(self.device)
+                    for val_batch in val_loader:
+                        x_val = val_batch[0].to(self.device)
+                        y_val = val_batch[1].to(self.device)
 
                         preds, val_loss = validation_step(x_val, y_val)
 
