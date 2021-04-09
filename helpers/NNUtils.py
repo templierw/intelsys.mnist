@@ -1,3 +1,4 @@
+import os
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
@@ -7,13 +8,14 @@ from helpers.analysis.AnalysisUtils import getNumCorrect
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
 def loadMNISTDatasets(path='./dataset'):
     transform = transforms.Compose([
-        transforms.ToTensor(), 
+        transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
         ]) # value needs to be recomputed, taken from internet
     dataset = dt.MNIST(root=path, train=True, download=True, transform=transform)
-    
+
     test_split = int(len(dataset) * 0.2)
     train_split = len(dataset) - test_split
     train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
@@ -23,7 +25,7 @@ def loadMNISTDatasets(path='./dataset'):
     return dataset, test_dataset, val_dataset
 
 
-def getMNISTLoaders(datasets,batch_size=4, num_workers=2):
+def getMNISTLoaders(datasets, batch_size=4, num_workers=2):
 
     train_dataset, test_dataset, val_dataset = datasets
 
@@ -89,7 +91,7 @@ def fit(epochs, model, loss_fn, optimizer, train_loader, test_loader):
         print(f'Train Epoch: {epoch} \tLoss: {losses[-1]:.6f} \tTest Loss: {val_losses[-1]:.6f}')
 
 
-def test(model, loss_fn, val_loader):
+def validate(model, loss_fn, val_loader):
     sum_loss = 0
     correct = 0
 
@@ -108,15 +110,19 @@ def test(model, loss_fn, val_loader):
     accuracy = correct / len(val_loader.dataset)
     accuracy_percent = accuracy * 100
 
-    print(f'\nTest set: Avg. loss: {avg_loss:.4f}, Accuracy: {accuracy} ({accuracy_percent:.1f}%)\n')
+    print(f'\nValidation set: Avg. loss: {avg_loss:.4f}, Accuracy: {accuracy} ({accuracy_percent:.1f}%)\n')
 
 
-def saveModel(model, name ,path='./models'):
+def saveModel(model, name, path='./models'):
+    if os.path.exists(f'{path}/{name}'):
+        return f'ERROR: File [{path}/{name}] already exists!'
     torch.save(model.state_dict(), f'{path}/{name}')
 
 def loadModel(modelClass, name, path='./models'):
+    if not os.path.exists(f'{path}/{name}'):
+        return f'ERROR: File [{path}/{name}] does NOT exists!'
+
     model = modelClass
     model.load_state_dict(torch.load(f'{path}/{name}'))
     model.eval()
-
     return model

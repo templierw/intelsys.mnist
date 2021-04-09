@@ -14,7 +14,7 @@ from collections import OrderedDict
 from collections import namedtuple
 from itertools import product
 
-from Models import MLPOne, MLPTwo, MLPZero
+from models.MLP import MLPOne, MLPTwo, MLPZero
 
 class RunBuilder():
     @staticmethod
@@ -49,6 +49,7 @@ class RunManager():
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
     def setModel(self, run):
         try:
             modelName = run.model
@@ -63,21 +64,17 @@ class RunManager():
                 self.model = MLPTwo()
 
         except AttributeError:
-            self.model = MLPOne()
+            self.model = MLPOne().to(self.device)
 
-        self.model.to(self.device)
-        
 
     def getOptimizer(self, name, modelParams, lr):
-
         if name == 'sgd' or None:
             return torch.optim.SGD(modelParams, lr=lr)
-
         if name == 'adam':
             return torch.optim.Adam(modelParams, lr=lr)
 
-    def begin_run(self, run, train_loader, val_loader):
 
+    def begin_run(self, run, train_loader, val_loader):
         self.run_params = run
         self.run_count += 1
 
@@ -86,8 +83,9 @@ class RunManager():
         self.tb = SummaryWriter(log_dir=f'runs/xp/{self.name}/{run}')
 
         images, _ = next(iter(self.train_loader))
-        
+        images.to(self.device)
         self.tb.add_graph(self.model, images)
+
 
     def end_run(self, val_batch):
         inputs, labels = val_batch
@@ -99,6 +97,7 @@ class RunManager():
         self.saveModel(name=f'{self.name}_{self.run_params}')
         self.model = None
 
+
     def begin_epoch(self):
         self.epoch_count += 1
         self.epoch_loss = 0
@@ -106,8 +105,8 @@ class RunManager():
         self.epoch_num_correct = 0
         self.epoch_num_val_correct = 0
 
-    def end_epoch(self):
 
+    def end_epoch(self):
         loss = self.epoch_loss / len(self.train_loader.dataset)
         val_loss = self.epoch_val_loss / len(self.val_loader.dataset)
         accuracy = self.epoch_num_correct / len(self.train_loader.dataset)
@@ -137,16 +136,18 @@ class RunManager():
         clear_output(wait=True)
         display(df)
 
+
     def track_loss(self, loss, batch, test=True):
         inc_loss = loss.item() * batch[0].shape[0]
-
         if test:
             self.epoch_loss += inc_loss
         else:
             self.epoch_val_loss += inc_loss
-    
+
+
     def _get_num_correct(self, preds, labels):
         return preds.argmax(dim=1).eq(labels).sum().item()
+
 
     def track_num_correct(self, preds, labels, test=True):
         num_correct = self._get_num_correct(preds, labels)
@@ -154,6 +155,7 @@ class RunManager():
             self.epoch_num_correct += num_correct
         else:
             self.epoch_num_val_correct += num_correct
+
 
     def save(self):
         pd.DataFrame.from_dict(
@@ -175,6 +177,7 @@ class RunManager():
 
         return train_step
 
+
     def create_validation_step_function(self, loss_fn):
         def validation_step(x, y):
             self.model.eval()
@@ -184,14 +187,15 @@ class RunManager():
 
         return validation_step
 
-    def fit(self, epochs, params, loss_fn, train_set, test_set):
-        
+
+    def fit(self, epochs, params, loss_fn, train_set, val_set):
+
         for run in RunBuilder.get_runs(params):
 
             self.setModel(run)
 
             train_loader = DataLoader(train_set, batch_size=run.batch_size, shuffle=True, num_workers=2)
-            val_loader = DataLoader(test_set, batch_size=run.batch_size, num_workers=2)
+            val_loader = DataLoader(val_set, batch_size=run.batch_size, num_workers=2)
             optimizer = self.getOptimizer(run.optim, self.model.parameters(), run.lr)
 
             train_step = self.create_train_step_function(loss_fn, optimizer)
@@ -200,9 +204,9 @@ class RunManager():
             self.begin_run(run, train_loader, val_loader)
             for epoch in range(epochs):
                 self.begin_epoch()
-                for batch in train_loader:
-                    x_batch = batch[0].to(self.device)
-                    y_batch = batch[1].to(self.device)
+                for x_batch, y_batch in train_loader:
+                    x_batch = x_batch.to(self.device)
+                    y_batch = y_batch.to(self.device)
 
                     preds, loss = train_step(x_batch, y_batch)
 
@@ -210,9 +214,9 @@ class RunManager():
                     self.track_num_correct(preds, y_batch, test=True)
 
                 with torch.no_grad():
-                    for val_batch in val_loader:
-                        x_val = val_batch[0].to(self.device)
-                        y_val = val_batch[1].to(self.device)
+                    for x_val, y_val in test_loader:
+                        x_val = x_val.to(self.device)
+                        y_val = y_val.to(self.device)
 
                         preds, val_loss = validation_step(x_val, y_val)
 
@@ -223,12 +227,18 @@ class RunManager():
             self.end_run(val_batch)
         self.save()
 
+
     def saveModel(self, name ,path='./models'):
+        if os.path.exists(f'{path}/{name}'):
+            return f'ERROR: File [{path}/{name}] already exists!'
         torch.save(self.model.state_dict(), f'{path}/{name}')
 
+
     def loadModel(modelClass, name, path='./models'):
+        if not os.path.exists(f'{path}/{name}'):
+            return f'ERROR: File [{path}/{name}] does NOT exists!'
+
         model = modelClass
         model.load_state_dict(torch.load(f'{path}/{name}'))
         model.eval()
-
         return model
