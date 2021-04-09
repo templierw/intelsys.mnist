@@ -16,13 +16,13 @@ def loadMNISTDatasets(path='./dataset'):
         ]) # value needs to be recomputed, taken from internet
     dataset = dt.MNIST(root=path, train=True, download=True, transform=transform)
 
-    test_split = int(len(dataset) * 0.2)
-    train_split = len(dataset) - test_split
-    train_dataset, test_dataset = random_split(dataset, [train_split, test_split])
+    val_split = int(len(dataset) * 0.2)
+    train_split = len(dataset) - val_split
+    train_dataset, val_dataset = random_split(dataset, [train_split, val_split])
 
-    val_dataset = dt.MNIST(root=path, train=False, download=True, transform=transform)
+    holdback_dataset = dt.MNIST(root=path, train=False, download=True, transform=transform)
 
-    return dataset, test_dataset, val_dataset
+    return train_dataset, val_dataset, holdback_dataset
 
 
 def getMNISTLoaders(datasets, batch_size=4, num_workers=2):

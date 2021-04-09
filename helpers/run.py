@@ -14,7 +14,7 @@ from collections import OrderedDict
 from collections import namedtuple
 from itertools import product
 
-from models.MLP import MLPOne, MLPTwo, MLPZero
+from models.MLP import MLPOne, MLPTwo, MLPZero, MLPZeroReLu
 
 class RunBuilder():
     @staticmethod
@@ -56,6 +56,9 @@ class RunManager():
 
             if modelName == "MLPZero":
                 self.model = MLPZero()
+                
+            if modelName == "MLPZeroReLu":
+                self.model = MLPZeroReLu()
 
             if modelName == "MLPOne":
                 self.model = MLPOne()
@@ -97,7 +100,7 @@ class RunManager():
                             global_step=self.epoch_count)
         self.tb.close()
         self.epoch_count = 0
-        self.saveModel(name=f'{self.name}_{self.run_params}')
+        self.saveModel()
         self.model = None
 
 
@@ -231,15 +234,15 @@ class RunManager():
         self.save()
 
 
-    def saveModel(self, name ,path='./models'):
-        if os.path.exists(f'{path}/{name}'):
-            return f'ERROR: File [{path}/{name}] already exists!'
-        torch.save(self.model.state_dict(), f'{path}/{name}')
+    def saveModel(self,path='./models'):
+        #if os.path.exists(f'{path}/{name}'):
+        #    return f'ERROR: File [{path}/{name}] already exists!'
+        torch.save(self.model.state_dict(), f'{path}/{self.name}_{self.run_params}')
 
 
-    def loadModel(modelClass, name, path='./models'):
-        if not os.path.exists(f'{path}/{name}'):
-            return f'ERROR: File [{path}/{name}] does NOT exists!'
+    def loadModel(self, modelClass, name, path='./models'):
+        #if not os.path.exists(f'{path}/{name}'):
+        #    return f'ERROR: File [{path}/{name}] does NOT exists!'
 
         model = modelClass
         model.load_state_dict(torch.load(f'{path}/{name}'))
