@@ -1,4 +1,7 @@
 import os
+import numpy as np
+import sklearn.metrics
+
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
@@ -65,7 +68,7 @@ def create_validation_step_function(model, loss_fn):
 
 
 # Based on article: https://towardsdatascience.com/understanding-pytorch-with-an-example-a-step-by-step-tutorial-81fc5f8c4e8e
-def fit(epochs, model, loss_fn, optimizer, train_loader, test_loader):
+def fit(epochs, model, loss_fn, optimizer, train_loader, test_loader, target_loss):
     losses = []
     val_losses = []
 
@@ -89,6 +92,9 @@ def fit(epochs, model, loss_fn, optimizer, train_loader, test_loader):
                 val_losses.append(val_loss)
 
         print(f'Train Epoch: {epoch} \tLoss: {losses[-1]:.6f} \tTest Loss: {val_losses[-1]:.6f}')
+
+        if val_losses[-1] <= target_loss:
+            return
 
 
 def validate(model, loss_fn, val_loader):
@@ -126,3 +132,16 @@ def loadModel(modelClass, name, path='./models'):
     model.load_state_dict(torch.load(f'{path}/{name}'))
     model.eval()
     return model
+
+
+def ComputeConfusionMatrices(model, holdback_loader):
+    global_cm = np.zeros((10,2,2), dtype=np.uint64)
+    with torch.no_grad():
+        model.eval()
+        for x, y in holdback_loader:
+            x = x.to(device)
+            yhat, _ = model(x)
+            yhat = torch.argmax(yhat, 1).to('cpu')
+            cm = sklearn.metrics.multilabel_confusion_matrix(y, yhat, labels=list(range(10)))
+            global_cm = np.add(global_cm, cm.astype('uint64'))
+    return global_cm

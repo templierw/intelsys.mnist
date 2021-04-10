@@ -8,9 +8,8 @@ class MLPZero(nn.Module):
 
     def forward(self, x):
         x = x.view(-1, 28*28)
-        
-        return self.fc(x)
-    
+        return self.fc(x), None
+
 class MLPZeroReLu(nn.Module):
     def __init__(self):
         super(MLPZero, self).__init__()
@@ -18,7 +17,7 @@ class MLPZeroReLu(nn.Module):
 
     def forward(self, x):
         x = x.view(-1, 28*28)
-        return F.relu(self.fc(x))
+        return F.relu(self.fc(x)), None
 
 class MLPOne(nn.Module):
     def __init__(self):
