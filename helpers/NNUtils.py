@@ -7,10 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
 from torchvision import datasets as dt, transforms
 
-from helpers.analysis.AnalysisUtils import getNumCorrect
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 
 def loadMNISTDatasets(path='./dataset'):
     transform = transforms.Compose([
@@ -145,3 +142,6 @@ def ComputeConfusionMatrices(model, holdback_loader):
             cm = sklearn.metrics.multilabel_confusion_matrix(y, yhat, labels=list(range(10)))
             global_cm = np.add(global_cm, cm.astype('uint64'))
     return global_cm
+
+def getNumCorrect(preds, labels):
+    return preds.argmax(dim=1).eq(labels).sum().item()
