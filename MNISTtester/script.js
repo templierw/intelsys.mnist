@@ -12,7 +12,7 @@ let lastY = 0;
 
 // Load our model.
 const sess = new onnx.InferenceSession();
-const loadingModelPromise = sess.loadModel("./onnx_model.onnx");
+const loadingModelPromise = sess.loadModel("./onnx/onnx_model.onnx");
 
 // Add 'Draw a number here!' to the canvas.
 ctx.lineWidth = 28;
@@ -84,7 +84,7 @@ async function updatePredictions() {
   const averagedData = averageData(imgData);
 
   //console.log(averagedData);
-  
+
   const input = new onnx.Tensor(new Float32Array(averagedData.flat()), "float32", [1,1,28,28]);
 
   const outputMap = await sess.run([input]);
