@@ -182,6 +182,8 @@ for (const promise of loadingPromises) {
       canvas.addEventListener("mousedown", canvasMouseDown);
       canvas.addEventListener('touchstart', canvasMouseDown);
       canvas.addEventListener('touchmove', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         let touch = e.touches[0];
         let mouseEvent = new MouseEvent("mousemove", {
           clientX: touch.clientX,
