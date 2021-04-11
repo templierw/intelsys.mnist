@@ -1,6 +1,8 @@
 const CANVAS_SIZE = 280;
 const CANVAS_SCALE = 0.5;
 
+const modelSelector = document.getElementById('model-select');
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const clearButton = document.getElementById("clear-button");
@@ -11,8 +13,26 @@ let lastX = 0;
 let lastY = 0;
 
 // Load our model.
-const sess = new onnx.InferenceSession();
-const loadingModelPromise = sess.loadModel("./onnx/onnx_model.onnx");
+let modelsToLoad = 0;
+const sessions = [];
+const loadingPromises = [];
+let selectedSession = 0;
+let processedInput = false;
+
+for (let i = 0; i < modelSelector.options.length; i++) {
+  let sess = new onnx.InferenceSession();
+  sessions.push(sess);
+  loadingPromises.push(sess.loadModel('./onnx/'+modelSelector.options[i].innerText+'.onnx'));
+  modelsToLoad++;
+}
+modelSelector.addEventListener('change', (event) => {
+  selectedSession = Number.parseInt(event.target.value);
+  console.log("changed?");
+  if (processedInput) {
+    console.log("changed2?");
+    updatePredictions();
+  }
+});
 
 // Add 'Draw a number here!' to the canvas.
 ctx.lineWidth = 28;
@@ -34,6 +54,7 @@ function clearCanvas() {
     element.className = "prediction-col";
     element.children[0].children[0].style.height = "0";
   }
+  processedInput = false;
 }
 
 function drawLine(fromX, fromY, toX, toY) {
@@ -87,7 +108,8 @@ async function updatePredictions() {
 
   const input = new onnx.Tensor(new Float32Array(averagedData.flat()), "float32", [1,1,28,28]);
 
-  const outputMap = await sess.run([input]);
+  const outputMap = await sessions[selectedSession].run([input]);
+  processedInput = true;
   const outputTensorIterator = outputMap.values();
   outputTensorIterator.next();
   const outputTensor = outputTensorIterator.next().value;
@@ -149,13 +171,21 @@ function bodyMouseOut(event) {
   }
 }
 
-loadingModelPromise.then(() => {
-  canvas.addEventListener("mousedown", canvasMouseDown);
-  canvas.addEventListener("mousemove", canvasMouseMove);
-  document.body.addEventListener("mouseup", bodyMouseUp);
-  document.body.addEventListener("mouseout", bodyMouseOut);
-  clearButton.addEventListener("mousedown", clearCanvas);
+for (const promise of loadingPromises) {
+  promise.then(() => {
+    modelsToLoad--;
+    if (modelsToLoad == 0) {
+      canvas.addEventListener("mousedown", canvasMouseDown);
+      canvas.addEventListener("mousemove", canvasMouseMove);
+      document.body.addEventListener("mouseup", bodyMouseUp);
+      document.body.addEventListener("mouseout", bodyMouseOut);
+      clearButton.addEventListener("mousedown", clearCanvas);
+    
+    
+    
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      ctx.fillText("Draw a number here!", CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+    }
+  });
+}
 
-  ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-  ctx.fillText("Draw a number here!", CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-})

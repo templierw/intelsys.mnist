@@ -5,6 +5,15 @@
 
   <body>
     <div class="card elevation">
+      <h3>Model selection</h3>
+      <select name="modelselector" id="model-select">
+        <option value="0" default>LeNet5</option>
+        <option value="1" default>LeNet5MaxPool</option>
+        <!-- <option value="2" default>LeNet5RELU</option> -->
+      </select>
+    </div>
+
+    <div class="card elevation">
       <canvas
         class="canvas elevation"
         id="canvas"
@@ -93,7 +102,7 @@
       <a href=https://github.com/elliotwaite/pytorch-to-javascript-with-onnx-js>https://github.com/elliotwaite/pytorch-to-javascript-with-onnx-js</a>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+    <script src="onnx.min.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
