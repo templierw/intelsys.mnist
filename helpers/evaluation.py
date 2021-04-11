@@ -8,7 +8,6 @@ import torch.nn.functional as F
 
 classes = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
 
-
 def matplotlib_imshow(img, one_channel=False):
     if one_channel:
         img = img.mean(dim=0)
@@ -72,6 +71,8 @@ def plot_classes_preds(net, images, labels):
 
 
 def ComputeConfusionMatrices(model, holdback_loader):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
     global_cm = np.zeros((10,2,2), dtype=np.uint64)
     with torch.no_grad():
         model.eval()
@@ -84,7 +85,7 @@ def ComputeConfusionMatrices(model, holdback_loader):
     return global_cm
 
 
-def loadModel(self, modelClass, name, path='./models/saved'):
+def loadModel(modelClass, name, path='./models/saved'):
     if not os.path.exists(f'{path}/{name}'):
         return f'ERROR: File [{path}/{name}] does NOT exists!'
 
@@ -95,13 +96,15 @@ def loadModel(self, modelClass, name, path='./models/saved'):
 
 
 def validate(model, loss_fn, holdback_loader):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
     sum_loss = 0
     correct = 0
 
     with torch.no_grad():
         model.eval()
         for x_hb, y_hb in holdback_loader:
-            x_test = x_hb.to(device)
+            x_hb = x_hb.to(device)
             y_hb = y_hb.to(device)
 
             y_hat, _ = model(x_hb)
