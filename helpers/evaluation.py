@@ -1,9 +1,13 @@
+import os
+import sklearn.metrics
 import matplotlib.pyplot as plt
 import numpy as np
+
 import torch
 import torch.nn.functional as F
 
 classes = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
+
 
 def matplotlib_imshow(img, one_channel=False):
     if one_channel:
@@ -15,11 +19,12 @@ def matplotlib_imshow(img, one_channel=False):
     else:
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
 
+
 def plotImages(samples, target, nb):
     if len(samples) != len(target) or nb > len(target):
         print("Cannot display the image(s) - please verify your parameters...")
         return
-        
+
     fig = plt.figure()
     for i in range(nb):
         plt.subplot(nb+1%4,4,i+1)
@@ -29,9 +34,10 @@ def plotImages(samples, target, nb):
         plt.title(f"Ground Truth: {target[i]}")
         plt.xticks([])
         plt.yticks([])
-    
+
     #plt.show()
     return fig
+
 
 def images_to_probs(net, images):
     '''
@@ -62,3 +68,26 @@ def plot_classes_preds(net, images, labels):
         ax.set_title(f"Pred {classes[preds[idx]]}, {(probs[idx] * 100.0):.1f}%\n(label: {classes[labels[idx]]})",
                     color=("green" if preds[idx]==labels[idx].item() else "red"))
     return fig
+
+
+def ComputeConfusionMatrices(model, holdback_loader):
+    global_cm = np.zeros((10,2,2), dtype=np.uint64)
+    with torch.no_grad():
+        model.eval()
+        for x, y in holdback_loader:
+            x = x.to(device)
+            yhat, _ = model(x)
+            yhat = torch.argmax(yhat, 1).to('cpu')
+            cm = sklearn.metrics.multilabel_confusion_matrix(y, yhat, labels=list(range(10)))
+            global_cm = np.add(global_cm, cm.astype('uint64'))
+    return global_cm
+
+
+def loadModel(self, modelClass, name, path='./models'):
+    if not os.path.exists(f'{path}/{name}'):
+        return f'ERROR: File [{path}/{name}] does NOT exists!'
+
+    model = modelClass
+    model.load_state_dict(torch.load(f'{path}/{name}'))
+    model.eval()
+    return model
