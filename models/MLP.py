@@ -10,7 +10,8 @@ class MLPZero(nn.Module):
 
     def forward(self, x):
         x = x.view(-1, 28*28)
-        return self.fc(x), self.fc(x)
+        x = self.fc(x)
+        return x, F.softmax(x, dim=1)
 
 class MLPZeroReLu(nn.Module):
     def __init__(self):
@@ -19,7 +20,8 @@ class MLPZeroReLu(nn.Module):
 
     def forward(self, x):
         x = x.view(-1, 28*28)
-        return F.relu(self.fc(x)), F.relu(self.fc(x))
+        x = F.relu(self.fc(x))
+        return x, F.softmax(x, dim=1)
 
 class MLPOne(nn.Module):
     def __init__(self):
@@ -31,7 +33,7 @@ class MLPOne(nn.Module):
         x = x.view(-1, 28*28)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return x, x
+        return x, F.softmax(x, dim=1)
 
 class MLPTwo(nn.Module):
     def __init__(self):
@@ -45,4 +47,4 @@ class MLPTwo(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
-        return x, x
+        return x, F.softmax(x, dim=1)
