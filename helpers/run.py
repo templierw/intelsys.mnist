@@ -88,9 +88,9 @@ class RunManager():
         self.val_loader = val_loader
         self.tb = SummaryWriter(log_dir=f'runs/xp/{self.name}/{run}')
 
-        images, _ = next(iter(self.train_loader))
-        images.to(self.device)
-        self.tb.add_graph(self.model, images)
+        #images, _ = next(iter(self.train_loader))
+        #images.to(self.device)
+        #self.tb.add_graph(self.model, images)
 
 
     def end_run(self, val_batch):
@@ -171,7 +171,7 @@ class RunManager():
     def create_train_step_function(self, loss_fn, optimizer):
         def train_step(x, y):
             self.model.train()
-            yhat = self.model(x)
+            yhat, _ = self.model(x)
 
             loss = loss_fn(yhat, y)
 
@@ -187,7 +187,7 @@ class RunManager():
     def create_validation_step_function(self, loss_fn):
         def validation_step(x, y):
             self.model.eval()
-            yhat = self.model(x)
+            yhat, _ = self.model(x)
             val_loss = loss_fn(yhat, y)
             return yhat, val_loss
 
