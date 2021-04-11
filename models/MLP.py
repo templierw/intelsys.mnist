@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+# The models return the same value twice to match the return type of the CNN models
+
 class MLPZero(nn.Module):
     def __init__(self):
         super(MLPZero, self).__init__()
@@ -8,7 +10,7 @@ class MLPZero(nn.Module):
 
     def forward(self, x):
         x = x.view(-1, 28*28)
-        return self.fc(x), None
+        return self.fc(x), self.fc(x)
 
 class MLPZeroReLu(nn.Module):
     def __init__(self):
@@ -17,7 +19,7 @@ class MLPZeroReLu(nn.Module):
 
     def forward(self, x):
         x = x.view(-1, 28*28)
-        return F.relu(self.fc(x)), None
+        return F.relu(self.fc(x)), F.relu(self.fc(x))
 
 class MLPOne(nn.Module):
     def __init__(self):
@@ -29,7 +31,7 @@ class MLPOne(nn.Module):
         x = x.view(-1, 28*28)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return x, None
+        return x, x
 
 class MLPTwo(nn.Module):
     def __init__(self):
@@ -43,4 +45,4 @@ class MLPTwo(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
-        return x, None
+        return x, x

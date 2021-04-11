@@ -2,8 +2,9 @@ import torch
 import sys
 
 from CNN import *
+from MLP import *
 
-model = LeNet5() # check CNN.py for more models
+model = LeNet5() # check MLP.py and CNN.py for more models
 name = "LeNet5"
 
 device = torch.device('cpu')

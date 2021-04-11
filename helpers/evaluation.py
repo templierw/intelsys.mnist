@@ -2,11 +2,13 @@ import os
 import sklearn.metrics
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 import torch
 import torch.nn.functional as F
 
 classes = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def matplotlib_imshow(img, one_channel=False):
     if one_channel:
@@ -117,3 +119,32 @@ def validate(model, loss_fn, holdback_loader):
     accuracy_percent = accuracy * 100
 
     print(f'\nHoldBackSet: Avg. loss: {avg_loss:.4f}, Accuracy: {accuracy} ({accuracy_percent:.1f}%)\n')
+
+
+def getPerformanceMetrics(cms):
+    results = pd.DataFrame(index=['0','1','2','3','4','5','6','7','8','9', 'total'], columns=['accuracy', 'precision', 'recall', 'f1'])
+
+    for i, cm in enumerate(cms):
+
+        tp = cm[0][0]
+        fn = cm[0][1]
+        fp = cm[1][0]
+        tn = cm[1][1]
+
+        accuracy = (tp + tn)/(tp + tn + fp + fn)
+        recall = tp/(tp+fn)
+        precision = tp/(tp+fp)
+
+        f1 = (precision * recall)/(precision + recall)
+
+        results.loc[f'{i}','accuracy'] = accuracy
+        results.loc[f'{i}','precision'] = precision
+        results.loc[f'{i}','recall'] = recall
+        results.loc[f'{i}','f1'] = f1
+
+        results.loc['total','accuracy'] = results['accuracy'].mean()
+        results.loc['total','precision'] = results['precision'].mean()
+        results.loc['total','recall'] = results['recall'].mean()
+        results.loc['total','f1'] = results['f1'].mean()
+
+    return results.astype(float).round(3)
