@@ -13,7 +13,7 @@ def matplotlib_imshow(img, one_channel=False):
     if one_channel:
         img = img.mean(dim=0)
     img = img / 2 + 0.1307    # unnormalize
-    npimg = img.numpy()
+    npimg = img.cpu().numpy()
     if one_channel:
         plt.imshow(npimg, cmap="Greys")
     else:
@@ -44,10 +44,11 @@ def images_to_probs(net, images):
     Generates predictions and corresponding probabilities from a trained
     network and a list of images
     '''
+    net.eval()
     output, _ = net(images)
     # convert output probabilities to predicted class
     _, preds_tensor = torch.max(output, 1)
-    preds = np.squeeze(preds_tensor.numpy())
+    preds = np.squeeze(preds_tensor.cpu().numpy())
     return preds, [F.softmax(el, dim=0)[i].item() for i, el in zip(preds, output)]
 
 
@@ -83,7 +84,7 @@ def ComputeConfusionMatrices(model, holdback_loader):
     return global_cm
 
 
-def loadModel(self, modelClass, name, path='./models'):
+def loadModel(self, modelClass, name, path='./models/saved'):
     if not os.path.exists(f'{path}/{name}'):
         return f'ERROR: File [{path}/{name}] does NOT exists!'
 
@@ -91,3 +92,25 @@ def loadModel(self, modelClass, name, path='./models'):
     model.load_state_dict(torch.load(f'{path}/{name}'))
     model.eval()
     return model
+
+
+def validate(model, loss_fn, holdback_loader):
+    sum_loss = 0
+    correct = 0
+
+    with torch.no_grad():
+        model.eval()
+        for x_hb, y_hb in holdback_loader:
+            x_test = x_hb.to(device)
+            y_hb = y_hb.to(device)
+
+            y_hat, _ = model(x_hb)
+            sum_loss += loss_fn(y_hat, y_hb).item()
+
+            correct += y_hat.argmax(dim=1).eq(y_hb).sum().item()
+
+    avg_loss = sum_loss / len(holdback_loader.dataset)
+    accuracy = correct / len(holdback_loader.dataset)
+    accuracy_percent = accuracy * 100
+
+    print(f'\nHoldBackSet: Avg. loss: {avg_loss:.4f}, Accuracy: {accuracy} ({accuracy_percent:.1f}%)\n')

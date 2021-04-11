@@ -1,92 +1,35 @@
-# adapted from https://deeplizard.com/learn/video/NSKghk0pcco
-
 import os
 from collections import OrderedDict
 from collections import namedtuple
 from itertools import product
 
-import torch
+import torch.optim
 import pandas as pd
 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from IPython.display import display, clear_output
 
-from helpers import evaluation as vu
-from models.MLP import MLPOne, MLPTwo, MLPZero, MLPZeroReLu
+from helpers.evaluation import plot_classes_preds
+from helpers.model_trainer import ModelTrainer
 
 
+# loosly based on https://deeplizard.com/learn/video/NSKghk0pcco
 class TrainingGuider:
     PARAMETER_KEYS = ['model', 'learning_rate', 'batch_size', 'optimizer']
 
-    def __init__(self, name):
+    def __init__(self, name, override_models=False):
         self.name = name
-
-        self.run_params = None
-        self.run_count = 0
+        self.override_models = override_models
         self.run_data = []
 
-        self.model = None
-        self.train_loader = None
-        self.val_loader = None
         self.tb = None
-
+        self.model_trainer = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-
-
-    def begin_run(self, run, train_loader, val_loader):
-        self.run_params = run
-        self.run_count += 1
-
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.tb = SummaryWriter(log_dir=f'runs/xp/{self.name}/{run}')
-
-
-    def end_run(self, val_batch):
-        inputs, labels = val_batch
-        self.tb.add_figure('predictions vs. actuals',
-                            vu.plot_classes_preds(self.model, inputs, labels),
-                            global_step=self.epoch_count)
-        self.tb.close()
-        self.epoch_count = 0
-        self.saveModel()
-        self.model = None
-
-
-
-    def end_epoch(self):
-        loss = self.epoch_loss / len(self.train_loader.dataset)
-        val_loss = self.epoch_val_loss / len(self.val_loader.dataset)
-        accuracy = self.epoch_num_correct / len(self.train_loader.dataset)
-        accuracy_val = self.epoch_num_val_correct / len(self.val_loader.dataset)
-
-        self.tb.add_scalars('Loss', {
-            "train_loss": loss,
-            "val_loss": val_loss
-        }, self.epoch_count)
-
-        self.tb.add_scalars('Accuracy', {
-            "train_accuracy": accuracy,
-            "val_accuracy": accuracy_val
-        }, self.epoch_count)
-
-        results = OrderedDict()
-        results["run"] = self.run_count
-        results["epoch"] = self.epoch_count
-        results['loss'] = loss
-        results['valLoss'] = val_loss
-        results["accuracy"] = accuracy
-        results["accuracy_val"] = accuracy_val
-        for k,v in self.run_params._asdict().items(): results[k] = v
-        self.run_data.append(results)
-
-        df = pd.DataFrame.from_dict(self.run_data, orient='columns')
-
-        clear_output(wait=True)
-        display(df)
-
+        self.case = None
+        self.case_name = None
+        self.case_counter = 0
 
 
     def _validate(self, params):
@@ -107,14 +50,75 @@ class TrainingGuider:
         return cases
 
 
-    def _getOptimizer(self, name, modelParams, lr):
+    def _get_optimizer(self, name, modelParams, lr):
         if name == 'sgd' or None:
             return torch.optim.SGD(modelParams, lr=lr)
         if name == 'adam':
             return torch.optim.Adam(modelParams, lr=lr)
 
 
-    def run(self, epochs, params, loss_fn, train_set, val_set):
+    def _begin(self, case):
+        self.case = case
+        self.case_counter += 1
+        self._extract_case_name()
+        self.tb = SummaryWriter(log_dir=f'runs/xp/{self.name}/{self.case_name}')
+
+
+    def _extract_case_name(self):
+        self.case_name = f'model_{type(self.case.model).__name__}'
+        for idx, key in enumerate(TrainingGuider.PARAMETER_KEYS):
+            if idx == 0: continue
+            self.case_name += f'_{key}_{self.case[idx]}'
+
+
+    def _end(self, val_loader):
+        x_val, y_val = list(val_loader)[-1]
+        x_val = x_val.to(self.device)
+        y_val = y_val.to(self.device)
+
+        plot = plot_classes_preds(self.model_trainer.model, x_val, y_val)
+        epochs = len(self.model_trainer.state['losses'])
+
+        self.tb.add_figure('prediction vs. truth', plot, global_step=epochs)
+        self.tb.close()
+        self.model_trainer.save_model(self.case_name, self.override_models)
+        self.model_trainer = None
+
+
+    def _display_training_state(self, state):
+        epoch = len(state['losses'])
+
+        self.tb.add_scalars('Loss', {
+            "train_loss": state['losses'][-1],
+            "val_loss": state['val_losses'][-1]
+        }, epoch)
+
+        self.tb.add_scalars('Accuracy', {
+            "train_accuracy": state['accuracy'][-1],
+            "val_accuracy": state['val_accuracy'][-1]
+        }, epoch)
+
+        results = OrderedDict()
+        results["case"] = self.case_counter
+        results["epoch"] = epoch
+        results['loss'] = state['losses'][-1]
+        results['val_loss'] = state['val_losses'][-1]
+        results["accuracy"] = state['accuracy'][-1]
+        results["val_accuracy"] = state['val_accuracy'][-1]
+
+        for key, value in self.case._asdict().items():
+            if key == 'model': continue
+            results[key] = value
+        results['model'] = f'{type(self.case.model).__name__}'
+
+        self.run_data.append(results)
+
+        df = pd.DataFrame.from_dict(self.run_data, orient='columns')
+        clear_output(wait=True)
+        display(df)
+
+
+    def run(self, epochs, params, loss_fn, target_loss, train_set, val_set):
         if self._validate(params) is False: return
 
         for case in self._generate_cases(params):
@@ -122,15 +126,15 @@ class TrainingGuider:
 
             train_loader = DataLoader(train_set, batch_size=case.batch_size, shuffle=True, num_workers=2)
             val_loader = DataLoader(val_set, batch_size=case.batch_size, num_workers=2)
-            optimizer = self._getOptimizer(case.optimizer, case.model.parameters(), case.learning_rate)
+            optimizer = self._get_optimizer(case.optimizer, case.model.parameters(), case.learning_rate)
 
-            self.begin_run(run, train_loader, val_loader)
-            for state in self.model_trainer.fit()
+            self._begin(case)
+            for state in self.model_trainer.fit(epochs, loss_fn, target_loss, optimizer, train_loader, val_loader):
+                self._display_training_state(state)
+            self._end(val_loader)
 
-                self.end_epoch()
-            self.end_run(val_batch)
-        self.save()
+        self.save_result()
 
 
-    def saveResult(self):
+    def save_result(self):
         pd.DataFrame.from_dict(self.run_data, orient='columns').to_csv(f'results/{self.name}.csv')

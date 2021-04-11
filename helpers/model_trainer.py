@@ -2,17 +2,27 @@ import os
 import torch
 
 
-# Based on article: https://towardsdatascience.com/understanding-pytorch-with-an-example-a-step-by-step-tutorial-81fc5f8c4e8e
+# loosly based on article: https://towardsdatascience.com/understanding-pytorch-with-an-example-a-step-by-step-tutorial-81fc5f8c4e8e
 class ModelTrainer:
     def __init__(self, modelClass):
-        self.model = modelClass
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.state = {
+        self.model = modelClass.to(self.device)
+        self.state = self._get_empty_state()
+
+
+    def _get_empty_state(self):
+        return {
             'losses': [],
-            'num_correct': [],
+            'accuracy': [],
             'val_losses': [],
-            'val_num_correct': []
+            'val_accuracy': []
         }
+
+
+    def _update_global_state(self, local_state):
+        for key in self.state.keys():
+            self.state[key].append(round((sum(local_state[key]) / len(local_state[key])), 4))
+
 
     def _create_train_step_function(self, loss_fn, optimizer):
         def train_step(x, y):
@@ -35,22 +45,24 @@ class ModelTrainer:
         return validation_step
 
 
-    def _get_number_of_correct_labels(self, prediction, truth):
-        return prediction.argmax(dim=1).eq(truth).sum().item()
+    def _get_accuracy(self, prediction, truth):
+        correct = prediction.argmax(dim=1).eq(truth).sum().item()
+        return correct / len(truth)
 
 
     def fit(self, epochs, loss_fn, target_loss, optimizer, train_loader, val_loader):
         train_step = self._create_train_step_function(loss_fn, optimizer)
         validation_step = self._create_validation_step_function(loss_fn)
 
+        local_state = self._get_empty_state()
         for epoch in range(epochs):
             for x_train, y_train in train_loader:
                 x_train = x_train.to(self.device)
                 y_train = y_train.to(self.device)
 
                 y_hat, loss = train_step(x_train, y_train)
-                self.state['num_correct'].append(_get_number_of_correct_labels(y_hat, y_train))
-                self.state['losses'].append(loss * x_train.shape[0])
+                local_state['losses'].append(loss)
+                local_state['accuracy'].append(self._get_accuracy(y_hat, y_train))
 
             with torch.no_grad():
                 for x_val, y_val in val_loader:
@@ -58,8 +70,10 @@ class ModelTrainer:
                     y_val = y_val.to(self.device)
 
                     y_hat, val_loss = validation_step(x_val, y_val)
-                    self.state['num_correct'].append(_get_number_of_correct_labels(y_hat, y_val))
-                    self.state['val_losses'].append(val_loss * x_val.shape[0])
+                    local_state['val_losses'].append(val_loss)
+                    local_state['val_accuracy'].append(self._get_accuracy(y_hat, y_val))
+
+            self._update_global_state(local_state)
 
             # Check if target error rate is reached to avoid overfitting
             if self.state['val_losses'][-1] <= target_loss:
@@ -68,8 +82,7 @@ class ModelTrainer:
                 yield self.state
         return self.state
 
-
-    def saveModel(self, name, override=False, path='./models'):
+    def save_model(self, name, override=False, path='./models/saved'):
         if os.path.exists(f'{path}/{name}') and not override:
             return f'ERROR: File [{path}/{name}] already exists!'
         torch.save(self.model.state_dict(), f'{path}/{name}')
