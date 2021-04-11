@@ -127,6 +127,8 @@ async function updatePredictions() {
 }
 
 function canvasMouseDown(event) {
+  event.preventDefault();
+  event.stopPropagation();
   isMouseDown = true;
   if (hasIntroText) {
     clearCanvas();
@@ -147,6 +149,8 @@ function canvasMouseDown(event) {
 }
 
 function canvasMouseMove(event) {
+  event.preventDefault();
+  event.stopPropagation();
   const x = event.offsetX / CANVAS_SCALE;
   const y = event.offsetY / CANVAS_SCALE;
   if (isMouseDown) {
@@ -176,8 +180,18 @@ for (const promise of loadingPromises) {
     modelsToLoad--;
     if (modelsToLoad == 0) {
       canvas.addEventListener("mousedown", canvasMouseDown);
+      canvas.addEventListener('touchstart', canvasMouseDown);
+      canvas.addEventListener('touchmove', function (e) {
+        let touch = e.touches[0];
+        let mouseEvent = new MouseEvent("mousemove", {
+          clientX: touch.clientX,
+          clientY: touch.clientY
+        });
+        canvas.dispatchEvent(mouseEvent);
+      }, false);
       canvas.addEventListener("mousemove", canvasMouseMove);
       document.body.addEventListener("mouseup", bodyMouseUp);
+      document.body.addEventListener('mouseout', bodyMouseUp);
       document.body.addEventListener("mouseout", bodyMouseOut);
       clearButton.addEventListener("mousedown", clearCanvas);
     
