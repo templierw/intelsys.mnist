@@ -175,33 +175,41 @@ function bodyMouseOut(event) {
   }
 }
 
-for (const promise of loadingPromises) {
-  promise.then(() => {
-    modelsToLoad--;
-    if (modelsToLoad == 0) {
-      canvas.addEventListener("mousedown", canvasMouseDown);
-      canvas.addEventListener('touchstart', canvasMouseDown);
-      canvas.addEventListener('touchmove', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        let touch = e.touches[0];
-        let mouseEvent = new MouseEvent("mousemove", {
-          clientX: touch.clientX,
-          clientY: touch.clientY
-        });
-        canvas.dispatchEvent(mouseEvent);
-      }, false);
-      canvas.addEventListener("mousemove", canvasMouseMove);
-      document.body.addEventListener("mouseup", bodyMouseUp);
-      document.body.addEventListener('mouseout', bodyMouseUp);
-      document.body.addEventListener("mouseout", bodyMouseOut);
-      clearButton.addEventListener("mousedown", clearCanvas);
-    
-    
-    
-      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-      ctx.fillText("Draw a number here!", CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-    }
-  });
+const dummyInputArr = [];
+for (let i = 0; i < 28*28; i++)
+  dummyInputArr.push(0);
+const dummyInput = new onnx.Tensor(new Float32Array(dummyInputArr), "float32", [1,1,28,28]);
+
+for (let i = 0; i < modelsToLoad; i++) {
+
+  const loadCallback = function () {
+    sessions[this.sessionId].run([dummyInput]).then(() => {
+      modelsToLoad--;
+      if (modelsToLoad == 0) {
+        canvas.addEventListener("mousedown", canvasMouseDown);
+        canvas.addEventListener('touchstart', canvasMouseDown);
+        canvas.addEventListener('touchmove', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          let touch = e.touches[0];
+          let mouseEvent = new MouseEvent("mousemove", {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+          });
+          canvas.dispatchEvent(mouseEvent);
+        }, false);
+        canvas.addEventListener("mousemove", canvasMouseMove);
+        document.body.addEventListener("mouseup", bodyMouseUp);
+        document.body.addEventListener('mouseout', bodyMouseUp);
+        document.body.addEventListener("mouseout", bodyMouseOut);
+        clearButton.addEventListener("mousedown", clearCanvas);
+      
+        ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        ctx.fillText("Draw a number!", CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+      }
+    });
+  }
+
+  loadingPromises[i].then(loadCallback.bind({sessionId: i}));
 }
 
