@@ -12,7 +12,7 @@ class MLPZero(nn.Module):
 
 class MLPZeroReLu(nn.Module):
     def __init__(self):
-        super(MLPZero, self).__init__()
+        super(MLPZeroReLu, self).__init__()
         self.fc = nn.Linear(784, 10)
 
     def forward(self, x):
