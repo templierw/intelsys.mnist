@@ -92,7 +92,7 @@ def loadModel(modelClass, name, path='./models/saved'):
         return f'ERROR: File [{path}/{name}] does NOT exists!'
 
     model = modelClass
-    model.load_state_dict(torch.load(f'{path}/{name}'))
+    model.load_state_dict(torch.load(f'{path}/{name}', map_location=torch.device(device)))
     model.eval()
     return model
 
@@ -148,3 +148,17 @@ def getPerformanceMetrics(cms):
         results.loc['total','f1'] = results['f1'].mean()
 
     return results.astype(float).round(3)
+
+## taken from https://bytepawn.com/solving-mnist-with-pytorch-and-skl.html
+def test_class_probabilities(model, hb_loader, which_class):
+    model.eval()
+    actuals = []
+    probabilities = []
+    with torch.no_grad():
+        for data, target in hb_loader:
+            data, target = data.to(device), target.to(device)
+            output, _ = model(data)
+            prediction = output.argmax(dim=1, keepdim=True)
+            actuals.extend(target.view_as(prediction) == which_class)
+            probabilities.extend(np.exp(output[:, which_class]))
+    return [i.item() for i in actuals], [i.item() for i in probabilities]
