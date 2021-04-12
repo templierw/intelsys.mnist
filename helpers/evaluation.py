@@ -103,6 +103,8 @@ def validate(model, loss_fn, holdback_loader):
     sum_loss = 0
     correct = 0
 
+    model = model.to(device)
+
     with torch.no_grad():
         model.eval()
         for x_hb, y_hb in holdback_loader:
@@ -155,9 +157,11 @@ def test_class_probabilities(model, hb_loader, which_class):
     actuals = []
     probabilities = []
     with torch.no_grad():
+        model.eval()
         for data, target in hb_loader:
-            data, target = data.to(device), target.to(device)
+            data = data.to(device)
             output, _ = model(data)
+            output = output.to('cpu')
             prediction = output.argmax(dim=1, keepdim=True)
             actuals.extend(target.view_as(prediction) == which_class)
             probabilities.extend(np.exp(output[:, which_class]))
