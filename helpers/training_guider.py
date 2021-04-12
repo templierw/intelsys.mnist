@@ -28,6 +28,7 @@ class TrainingGuider:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.case = None
+        self.case_model = None
         self.case_name = None
         self.case_counter = 0
 
@@ -65,7 +66,7 @@ class TrainingGuider:
 
 
     def _extract_case_name(self):
-        self.case_name = f'model_{type(self.case.model).__name__}'
+        self.case_name = f'model_{self.case_model}'
         for idx, key in enumerate(TrainingGuider.PARAMETER_KEYS):
             if idx == 0: continue
             self.case_name += f'_{key}_{self.case[idx]}'
@@ -109,7 +110,7 @@ class TrainingGuider:
         for key, value in self.case._asdict().items():
             if key == 'model': continue
             results[key] = value
-        results['model'] = f'{type(self.case.model).__name__}'
+        results['model'] = self.case_model
 
         self.run_data.append(results)
 
@@ -123,10 +124,11 @@ class TrainingGuider:
 
         for case in self._generate_cases(params):
             self.model_trainer = ModelTrainer(case.model)
+            self.case_model = f'{type(self.model_trainer.model).__name__}'
 
             train_loader = DataLoader(train_set, batch_size=case.batch_size, shuffle=True, num_workers=2)
             val_loader = DataLoader(val_set, batch_size=case.batch_size, num_workers=2)
-            optimizer = self._get_optimizer(case.optimizer, case.model.parameters(), case.learning_rate)
+            optimizer = self._get_optimizer(case.optimizer, self.model_trainer.model.parameters(), case.learning_rate)
 
             self._begin(case)
             for state in self.model_trainer.fit(epochs, loss_fn, target_loss, optimizer, train_loader, val_loader):
