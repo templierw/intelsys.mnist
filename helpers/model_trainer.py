@@ -6,7 +6,7 @@ import torch
 class ModelTrainer:
     def __init__(self, modelClass):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model = modelClass.to(self.device)
+        self.model = modelClass().to(self.device)
         self.state = self._get_empty_state()
 
 
