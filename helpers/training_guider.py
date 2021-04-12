@@ -42,6 +42,10 @@ class TrainingGuider:
             if key not in params.keys():
                 print(f'ERROR: key [{key}] is not found in the parameters!')
                 return False
+        for idx, model in enumerate(params['model']):
+            if not isinstance(model, type):
+                print(f'ERROR: model[{idx}] is not a model class type! (Avoid calling constructors "()" in the model list!)')
+                return False
         return True
 
 
